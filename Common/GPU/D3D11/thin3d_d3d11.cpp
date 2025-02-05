@@ -1650,7 +1650,6 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 		break;
 	case Aspect::NO_BIT:
 	case Aspect::STENCIL_BIT:
-	case Aspect::SURFACE_BIT:
 	case Aspect::VIEW_BIT:
 	case Aspect::FORMAT_BIT:
 		break;
@@ -1833,7 +1832,6 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 		}
 		break;
 	case Aspect::NO_BIT:
-	case Aspect::SURFACE_BIT:
 	case Aspect::VIEW_BIT:
 	case Aspect::FORMAT_BIT:
 		break;
