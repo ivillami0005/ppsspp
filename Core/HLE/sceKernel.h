@@ -24,8 +24,6 @@
 #include "Common/Log.h"
 #include "Common/Swap.h"
 
-#include "Core/HLE/ErrorCodes.h"
-
 class PointerWrap;
 
 // If you add to this, make sure to check KernelObjectPool::CreateByIDType().
