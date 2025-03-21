@@ -193,7 +193,7 @@ public:
 				outError = T::GetMissingErrorCode();
 				return nullptr;
 			}
-			outError = SCE_KERNEL_ERROR_OK;
+			outError = 0; // SCE_KERNEL_ERROR_OK, but don't want to include ErrorCodes.h here.
 			return t;
 		}
 	}

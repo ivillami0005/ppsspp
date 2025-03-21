@@ -25,6 +25,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -1134,7 +1135,7 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 	}
 	if (!psmfPlayerMap.empty()) {
 		*player = 0;
-		return hleReportError(Log::ME, ERROR_MPEG_ALREADY_INIT, "already have an active player");
+		return hleReportError(Log::ME, SCE_MPEG_ERROR_ALREADY_INIT, "already have an active player");
 	}
 
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
