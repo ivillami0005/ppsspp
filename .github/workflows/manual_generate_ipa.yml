@@ -32,7 +32,7 @@ jobs:
           if [ -d "../dev/build-molten/MoltenVK/Package/Release/MoltenVK/static/MoltenVK.xcframework" ]; then
             cp -r ../dev/build-molten/MoltenVK/Package/Release/MoltenVK/static/MoltenVK.xcframework ios/MoltenVK
           fi
-        # Place your MoltenVK.xcframework as needed before this step or customize the path ((331))
+        # Place your MoltenVK.xcframework as needed before this step or customize the path
 
       - name: Install cmake (if missing)
         run: |
@@ -47,17 +47,17 @@ jobs:
 
       - name: Set provisioning profile and bundle id
         run: |
-          # For sideloaded builds, you'll need to customize this in the Xcode project or automate via PlistBuddy/xcodeproj tools if desired ((88))
+          # For sideloaded builds, you'll need to customize this in the Xcode project or automate via PlistBuddy/xcodeproj tools if desired
           echo "Make sure to set your Apple Developer account and a unique bundle id in the Xcode project later."
 
       - name: Build app in Xcode
         run: |
           xcodebuild -project build-ios/PPSSPP.xcodeproj \
             -scheme PPSSPP \
-            -configuration ${{ github.event.inputs.buildVariant | capitalize }} \
+            -configuration ${{ github.event.inputs.buildVariant == 'release' && 'Release' || github.event.inputs.buildVariant == 'debug' && 'Debug' || 'Release' }} \
             -sdk iphoneos \
             -derivedDataPath build-ios/build
-        # This invokes Xcode to build the app for device (not simulator) ((84)) ((89))
+        # This invokes Xcode to build the app for device (not simulator)
 
       - name: Package .app as IPA
         run: |
