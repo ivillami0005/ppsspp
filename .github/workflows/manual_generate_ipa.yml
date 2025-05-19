@@ -1,98 +1,80 @@
-name: Manual Generate iOS IPA
+name: Manual Generate iOS IPA (Side Loaded)
+
 on:
   workflow_dispatch:
     inputs:
-
       buildVariant:
         type: choice
         description: 'Build Variant'
         required: true
         default: 'release'
-        options: 
+        options:
         - release
         - debug
 
 jobs:
 
-  ipa:
-    name: Generate ${{ github.event.inputs.buildVariant }} IPA
+  build-ipa:
+    name: Build PPSSPP iOS IPA (${{ github.event.inputs.buildVariant }})
     runs-on: macos-latest
+    env:
+      GIT_DESCRIBE: ""
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
-        
-      - name: Check Valid Version Tags
-        id: valid-tags
-        shell: bash
-        run: |
-          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
 
-      - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
-        if: ${{ steps.valid-tags.outputs.count == '0' }}
+      - name: Set up MoltenVK.xcframework (if custom)
         run: |
-          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
-          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
-          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+          if [ -d "../dev/build-molten/MoltenVK/Package/Release/MoltenVK/static/MoltenVK.xcframework" ]; then
+            cp -r ../dev/build-molten/MoltenVK/Package/Release/MoltenVK/static/MoltenVK.xcframework ios/MoltenVK
+          fi
+        # Place your MoltenVK.xcframework as needed before this step or customize the path ((331))
 
-      - name: Set Env Var(s)
+      - name: Install cmake (if missing)
         run: |
-          echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
-        
-      - name: Create macOS git-version.cpp & Version.txt
-        run: |
-          echo "const char *PPSSPP_GIT_VERSION = \"${GIT_VERSION}\";" > git-version.cpp
-          echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
-          # Create Version.txt file (should probably do this during building process)
-          mkdir build-ios
-          mkdir build-ios/PPSSPP.app
-          echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
-          # Testing values ...
-          echo "Content of [GITHUB_REF##*/] = ${GITHUB_REF##*/}"
-          echo "count=${{steps.valid-tags.outputs.count}}"
-          echo $(echo $GIT_VERSION | cut -c 2-)
-          # Testing file location ...
-          find . -name "Version.txt"
-          
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@main
-        with:
-          key: ios
-          create-symlink: true
-      
-      - name: Execute build
-        env:
-          CC: clang
-          CXX: clang++
-          USE_CCACHE: 1
-        run: |
-          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-          export CCACHE_SLOPPINESS=pch_defines,clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
-          export CCACHE_FILECLONE=true
-          export CCACHE_DEPEND=true
-          export CCACHE_COMPILERCHECK=content
-          ./b.sh --ios --${{ github.event.inputs.buildVariant }}
-      
-      - name: Package build
-        run: |
-          # Testing file location ...
-          find . -name "Version.txt"
-          find . -name "*.app"
-          mkdir ppsspp
-          if [ -e build*/PPSSPP.app ]; then
-            mkdir ppsspp/Payload
-            cp -a build*/PPSSPP.app ppsspp/Payload
-            # GitHub Actions zipping kills symlinks and permissions.
-            cd ppsspp
-            zip -qry PPSSPP.ipa Payload
-            rm -rf Payload
-            cd -
+          if ! command -v cmake > /dev/null; then
+            brew install cmake
           fi
 
-      - name: Upload artifact
+      - name: Generate Xcode project with CMake
+        run: |
+          mkdir -p build-ios
+          cmake -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -GXcode -S . -B build-ios
+
+      - name: Set provisioning profile and bundle id
+        run: |
+          # For sideloaded builds, you'll need to customize this in the Xcode project or automate via PlistBuddy/xcodeproj tools if desired ((88))
+          echo "Make sure to set your Apple Developer account and a unique bundle id in the Xcode project later."
+
+      - name: Build app in Xcode
+        run: |
+          xcodebuild -project build-ios/PPSSPP.xcodeproj \
+            -scheme PPSSPP \
+            -configuration ${{ github.event.inputs.buildVariant | capitalize }} \
+            -sdk iphoneos \
+            -derivedDataPath build-ios/build
+        # This invokes Xcode to build the app for device (not simulator) ((84)) ((89))
+
+      - name: Package .app as IPA
+        run: |
+          mkdir -p ppsspp/Payload
+          APP_PATH=$(find build-ios/build/Build/Products -type d -name PPSSPP.app | head -n 1)
+          if [ -d "$APP_PATH" ]; then
+            cp -a "$APP_PATH" ppsspp/Payload/
+            cd ppsspp
+            zip -qry PPSSPP.ipa Payload
+            cd ..
+          else
+            echo "App not found!"
+            exit 1
+          fi
+
+      - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iOS-${{ github.event.inputs.buildVariant }} build
-          path: ppsspp/
+          name: PPSSPP-iOS-${{ github.event.inputs.buildVariant }}.ipa
+          path: ppsspp/PPSSPP.ipa
